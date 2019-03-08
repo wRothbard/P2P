@@ -6,34 +6,36 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace P2P
 {
     class Program
     {
-        static ISet<IPEndPoint> peers = new HashSet<IPEndPoint>();
+        private static ISet<IPEndPoint> peers = new HashSet<IPEndPoint>();
+        private static bool serverRunning = true;
 
         static void Main(string[] args)
         {
             var port = Convert.ToInt32(args[0]);
             var peer = ParseIPEndPoint(args[1]);
             peers.Add(peer);
-            Connect(peer);
+            StartServerThread(port);
+            dynamic command = new { port = port };
+            SendCommand(peer, command);
         }
 
-        private static void Connect(IPEndPoint peer)
+        private static dynamic SendCommand(IPEndPoint peer, dynamic cmd)
         {
             using (var tcpClient = new TcpClient(peer.Address.ToString(), peer.Port))
             using (var ns = tcpClient.GetStream())
             using (var sr = new StreamReader(ns))
             using (var sw = new StreamWriter(ns))
             {
-                //sw.WriteLine(JsonConvert.SerializeObject(cmd));
-                sw.WriteLine("Ax");
+                sw.WriteLine(JsonConvert.SerializeObject(cmd));
                 sw.Flush();
-                //return sr.ReadToEnd();
-                sr.ReadToEnd();
+                return JsonConvert.DeserializeObject(sr.ReadToEnd());
             }
         }
 
@@ -56,6 +58,40 @@ namespace P2P
             if (success)
                 return new IPEndPoint(address, port);
             throw new FormatException("Unable to obtain host and port from [" + endpoint + "]");
+        }
+        private static void StartServerThread(int port)
+        {
+            var listener = new TcpListener(IPAddress.IPv6Any, port);
+            listener.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+            listener.Start();
+            new Thread(
+            () =>
+            {
+                while (serverRunning)
+                {
+                    var client = listener.AcceptTcpClient();
+                    var e = client.Client.RemoteEndPoint;
+                    IPAddress peerIpAddress = null;
+                    if (e is System.Net.IPEndPoint)
+                    {
+                        peerIpAddress = ((IPEndPoint)e).Address;
+                    }
+                    new Thread(
+                        () =>
+                        {
+                            using (var ns = client.GetStream())
+                            using (var sr = new StreamReader(ns))
+                            using (var sw = new StreamWriter(ns))
+                            {
+                                dynamic cmd = JsonConvert.DeserializeObject(sr.ReadLine());
+                                int peerPort = Convert.ToInt32(cmd["port"]);
+                                if (peerIpAddress != null)
+                                    peers.Add(new IPEndPoint(peerIpAddress, peerPort));
+                                sw.WriteLine(JsonConvert.SerializeObject(peers));
+                            }
+                        }).Start();
+                }
+            }).Start();
         }
     }
 }
