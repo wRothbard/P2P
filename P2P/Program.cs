@@ -19,12 +19,18 @@ namespace P2P
 
         static void Main(string[] args)
         {
-            var port = Convert.ToInt32(args[0]);
-            var peer = new HostPort(args[1]);
-            peers.Add(peer);
-            StartServerThread(port);
-            dynamic command = new { port = port };
-            SendCommand(peer, command);
+            var port = 0;
+            if (args.Length > 0)
+                port = Convert.ToInt32(args[0]);
+            port = StartServerThread(port);
+            Console.WriteLine(port);
+            if (args.Length > 1)
+            {
+                var peer = new HostPort(args[1]);
+                peers.Add(peer);
+                dynamic command = new { port = port };
+                SendCommand(peer, command);
+            }
         }
 
         private static dynamic SendCommand(HostPort peer, dynamic cmd)
@@ -40,11 +46,12 @@ namespace P2P
             }
         }
 
-        private static void StartServerThread(int port)
+        private static int StartServerThread(int port)
         {
             var listener = new TcpListener(IPAddress.IPv6Any, port);
             listener.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
             listener.Start();
+            port = ((IPEndPoint)(listener.LocalEndpoint)).Port;
             new Thread(
             () =>
             {
@@ -68,6 +75,7 @@ namespace P2P
                         }).Start();
                 }
             }).Start();
+            return port;
         }
     }
 }
