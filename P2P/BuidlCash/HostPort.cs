@@ -61,9 +61,9 @@ namespace P2P.BuidlCash
             this.ipEndPoint = new IPEndPoint(ipEndPoint.Address, port);
         }
 
-        public TcpClient CreateTcpClient()
+        public UdpClient CreateUdpClient()
         {
-            return new TcpClient(Hostname, Port);
+            return new UdpClient(Hostname, Port);
         }
     }
 }

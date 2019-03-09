@@ -30,54 +30,42 @@ namespace P2P
             }
         }
 
-        private static dynamic SendCommand(HostPort peer, dynamic cmd)
+        private static void SendCommand(HostPort peer, dynamic cmd)
         {
             var cmdJson = JsonConvert.SerializeObject(cmd);
-            var resultsJson = SendCommand(peer, cmdJson);
-            Console.WriteLine(resultsJson);
-            return JsonConvert.DeserializeObject(resultsJson);
+            SendCommand(peer, cmdJson);
         }
 
-        private static string SendCommand(HostPort peer, string cmdJson)
+        private static void SendCommand(HostPort peer, string cmdJson)
         {
-            using (var tcpClient = peer.CreateTcpClient())
-            using (var ns = tcpClient.GetStream())
-            using (var sr = new StreamReader(ns))
-            using (var sw = new StreamWriter(ns))
+            byte[] cmdBytes = Encoding.UTF8.GetBytes(cmdJson);
+            using (var udpClient = peer.CreateUdpClient())
             {
-                sw.WriteLine(cmdJson);
-                sw.Flush();
-                return sr.ReadToEnd();
+                udpClient.Send(cmdBytes, cmdBytes.Length);
             }
         }
 
         private static int StartServerThread()
         {
-            var listener = new TcpListener(IPAddress.IPv6Any, 0);
-            listener.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
-            listener.Start();
-            var port = ((IPEndPoint)(listener.LocalEndpoint)).Port;
-            new Thread(
-            () =>
-            {
+            var serverIpEndpoint = new IPEndPoint(IPAddress.IPv6Any, 0);
+
+            var listener = new UdpClient(serverIpEndpoint);  // XXX this needs to get disposed when Program is disposed, or owned and disposed by some other disposable object
+            //listener.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+            var port = ((IPEndPoint)(listener.Client.LocalEndPoint)).Port;
+            new Thread(() => {
                 while (serverRunning)
                 {
-                    var client = listener.AcceptTcpClient();
-                    var remoteEndPoint = client.Client.RemoteEndPoint;
-                    new Thread(
-                        () =>
-                        {
-                            using (var ns = client.GetStream())
-                            using (var sr = new StreamReader(ns))
-                            using (var sw = new StreamWriter(ns))
-                            {
-                                dynamic cmd = JsonConvert.DeserializeObject(sr.ReadLine());
-                                int peerPort = Convert.ToInt32(cmd["port"]);
-                                if (remoteEndPoint is System.Net.IPEndPoint)
-                                    peers.Add(new HostPort((IPEndPoint)remoteEndPoint, peerPort));
-                                sw.WriteLine(JsonConvert.SerializeObject(peers));
-                            }
-                        }).Start();
+                    var remoteIpEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                    byte[] receiveBytes = listener.Receive(ref remoteIpEndPoint);
+                    string cmdJson = Encoding.UTF8.GetString(receiveBytes);
+                    Console.WriteLine(cmdJson);
+                    dynamic cmd = JsonConvert.DeserializeObject(cmdJson);
+                    int peerPort = Convert.ToInt32(cmd["port"]);
+                    if (remoteIpEndPoint is System.Net.IPEndPoint)
+                    {
+                        peers.Add(new HostPort((IPEndPoint)remoteIpEndPoint, peerPort));
+                    }
+                    // XXX handle the received command here
                 }
             }).Start();
             return port;
