@@ -35,14 +35,22 @@ namespace P2P
 
         private static dynamic SendCommand(HostPort peer, dynamic cmd)
         {
+            var cmdJson = JsonConvert.SerializeObject(cmd);
+            var resultsJson = SendCommand(peer, cmdJson);
+            Console.WriteLine(resultsJson);
+            return JsonConvert.DeserializeObject(resultsJson);
+        }
+
+        private static string SendCommand(HostPort peer, string cmdJson)
+        {
             using (var tcpClient = peer.CreateTcpClient())
             using (var ns = tcpClient.GetStream())
             using (var sr = new StreamReader(ns))
             using (var sw = new StreamWriter(ns))
             {
-                sw.WriteLine(JsonConvert.SerializeObject(cmd));
+                sw.WriteLine(cmdJson);
                 sw.Flush();
-                return JsonConvert.DeserializeObject(sr.ReadToEnd());
+                return sr.ReadToEnd();
             }
         }
 
