@@ -14,23 +14,24 @@ namespace P2P
 {
     class Program
     {
+        private static int port;
         private static ISet<HostPort> peers = new HashSet<HostPort>();
         private static bool serverRunning = true;
 
         static void Main(string[] args)
         {
-            var port = StartServerThread();
+            port = StartServerThread();
             Console.WriteLine(port);
             if (args.Length > 0)
             {
                 var peer = new HostPort(args[0]);
                 peers.Add(peer);
-                dynamic command = new { port = port };
+                Cmd command = new Cmd(port, Cmd.GETPEERS);
                 SendCommand(peer, command);
             }
         }
 
-        private static void SendCommand(HostPort peer, dynamic cmd)
+        private static void SendCommand(HostPort peer, Cmd cmd)
         {
             var cmdJson = JsonConvert.SerializeObject(cmd);
             SendCommand(peer, cmdJson);
@@ -63,9 +64,25 @@ namespace P2P
                     int peerPort = Convert.ToInt32(cmd["port"]);
                     if (remoteIpEndPoint is System.Net.IPEndPoint)
                     {
-                        peers.Add(new HostPort((IPEndPoint)remoteIpEndPoint, peerPort));
+                        var newpeer = new HostPort((IPEndPoint)remoteIpEndPoint, peerPort);
+                        peers.Add(newpeer);
+                        var cmdName = cmd["cmd"];
+                        Cmd response = null;
+                        if (cmdName == Cmd.GETPEERS)
+                        {
+                            response = new Cmd(port, "XXX");
+                            response["peers"] = peers;
+                        }
+                        else
+                        {
+                            //response = new Cmd(port, "XXX");
+                            //response["errorMsg"] = "Unrecognized command";
+                        }
+                        if (response != null)
+                            SendCommand(newpeer, response);
+                        // XXX handle the received command here
                     }
-                    // XXX handle the received command here
+                    // XXX or handle the received command here
                 }
             }).Start();
             return port;
