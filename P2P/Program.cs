@@ -70,8 +70,12 @@ namespace P2P
                         Cmd response = null;
                         if (cmdName == Cmd.GETPEERS)
                         {
-                            response = new Cmd(port, "XXX");
+                            response = new Cmd(port, Cmd.SENDPEERS);
                             response["peers"] = peers;
+                        }
+                        else if (cmdName == Cmd.SENDPEERS)
+                        {
+                            LoadPeers(cmd);
                         }
                         else
                         {
@@ -86,6 +90,14 @@ namespace P2P
                 }
             }).Start();
             return port;
+        }
+
+        private static void LoadPeers(dynamic cmd)
+        {
+            foreach (var peer in cmd["peers"])
+            {
+                peers.Add(new HostPort((string)peer["Hostname"], Convert.ToInt32(peer["Port"])));
+            }
         }
     }
 }
