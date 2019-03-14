@@ -65,7 +65,7 @@ namespace P2P
                     if (remoteIpEndPoint is System.Net.IPEndPoint)
                     {
                         var newpeer = new HostPort((IPEndPoint)remoteIpEndPoint, peerPort);
-                        peers.Add(newpeer);
+                        AddPeer(newpeer);
                         var cmdName = cmd["cmd"];
                         Cmd response = null;
                         if (cmdName == Cmd.GETPEERS)
@@ -76,6 +76,13 @@ namespace P2P
                         else if (cmdName == Cmd.SENDPEERS)
                         {
                             LoadPeers(cmd);
+                        }
+                        else if (cmdName == Cmd.ADDPEER)
+                        {
+                            var p = cmd["peer"];
+                            var hostname = (string)p["Hostname"];
+                            var prt = Convert.ToInt32(p["Port"]);
+                            AddPeer(new HostPort(hostname, prt));
                         }
                         else
                         {
@@ -90,6 +97,22 @@ namespace P2P
                 }
             }).Start();
             return port;
+        }
+
+        private static void AddPeer(HostPort newpeer)
+        {
+            if (!peers.Contains(newpeer))
+            {
+                peers.Add(newpeer);
+                ThreadPool.QueueUserWorkItem(o => {
+                    foreach (var peer in peers)
+                    {
+                        Cmd cmd = new Cmd(port, Cmd.ADDPEER);
+                        cmd.Add("peer", newpeer);
+                        SendCommand(peer, cmd);
+                    }
+                });
+            }
         }
 
         private static void LoadPeers(dynamic cmd)

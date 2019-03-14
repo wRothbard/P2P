@@ -65,5 +65,43 @@ namespace P2P.BuidlCash
         {
             return new UdpClient(Hostname, Port);
         }
+
+        public override bool Equals(System.Object obj)
+        {
+            if (obj == null)
+                return false;
+
+            HostPort p = obj as HostPort;
+            return Equals(p);
+        }
+
+        public bool Equals(HostPort p)
+        {
+            if ((System.Object)p == null)
+                return false;
+
+            return (Hostname == p.Hostname) && (Port == p.Port);
+        }
+
+        public override int GetHashCode()
+        {
+            return Hostname.GetHashCode() ^ Port.GetHashCode();
+        }
+
+        public static bool operator ==(HostPort a, HostPort b)
+        {
+            if (System.Object.ReferenceEquals(a, b))
+                return true;
+
+            if ((object)a == null || (object)b == null)
+                return false;
+
+            return a.Hostname == b.Hostname && a.Port == b.Port;
+        }
+
+        public static bool operator !=(HostPort a, HostPort b)
+        {
+            return !(a == b);
+        }
     }
 }

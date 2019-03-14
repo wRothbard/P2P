@@ -10,6 +10,7 @@ namespace P2P.BuidlCash
     {
         public static string GETPEERS = "getpeers";
         public static string SENDPEERS = "sendpeers";
+        public static string ADDPEER = "addpeer";
 
         private static string CMD = "cmd";
         private static string PORT = "port";
