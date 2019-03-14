@@ -101,25 +101,35 @@ namespace P2P
 
         private static void AddPeer(HostPort newpeer)
         {
-            if (!peers.Contains(newpeer))
+            lock (peers)
             {
-                peers.Add(newpeer);
-                ThreadPool.QueueUserWorkItem(o => {
-                    foreach (var peer in peers)
+                if (!peers.Contains(newpeer))
+                {
+                    peers.Add(newpeer);
+                    ThreadPool.QueueUserWorkItem(o =>
                     {
-                        Cmd cmd = new Cmd(port, Cmd.ADDPEER);
-                        cmd.Add("peer", newpeer);
-                        SendCommand(peer, cmd);
-                    }
-                });
+                        lock (peers)
+                        {
+                            foreach (var peer in peers)
+                            {
+                                Cmd cmd = new Cmd(port, Cmd.ADDPEER);
+                                cmd.Add("peer", newpeer);
+                                SendCommand(peer, cmd);
+                            }
+                        }
+                    });
+                }
             }
         }
 
         private static void LoadPeers(dynamic cmd)
         {
-            foreach (var peer in cmd["peers"])
+            lock (peers)
             {
-                peers.Add(new HostPort((string)peer["Hostname"], Convert.ToInt32(peer["Port"])));
+                foreach (var peer in cmd["peers"])
+                {
+                    peers.Add(new HostPort((string)peer["Hostname"], Convert.ToInt32(peer["Port"])));
+                }
             }
         }
     }
